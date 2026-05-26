@@ -1,15 +1,68 @@
 'use client';
 
+import { Suspense } from 'react'
 import { loginAction } from '@/app/actions/auth'
 import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 
-export default function AdminLoginPage() {
+function AdminLoginForm() {
   const searchParams = useSearchParams();
   const errorMessage = searchParams.get('error');
   const isRegistered = searchParams.get('registered');
 
+  return (
+    <>
+      {isRegistered && (
+        <div className="mb-6 rounded-2xl bg-[#0B1426]/80 backdrop-blur-md p-4 text-[14px] font-bold text-green-400 flex items-center gap-3 border border-green-500/30 shadow-xl">
+          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+          Admin account created! Please log in.
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="mb-6 rounded-2xl bg-[#0B1426]/80 backdrop-blur-md p-4 text-[14px] font-bold text-red-400 border border-red-500/30 flex items-center gap-3 shadow-xl">
+          <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">⚠️</div>
+          {errorMessage}
+        </div>
+      )}
+
+      <form action={loginAction} className="space-y-4">
+        <input type="hidden" name="portal" value="admin" />
+        
+        <div>
+          <input 
+            type="email" 
+            name="email" 
+            required 
+            placeholder="Admin Email Address" 
+            className="w-full rounded-2xl bg-transparent border border-white/10 p-4 text-white text-[15px] placeholder-slate-400 outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all backdrop-blur-sm" 
+          />
+        </div>
+
+        <div>
+          <input 
+            type="password" 
+            name="password" 
+            required 
+            placeholder="Admin Password" 
+            className="w-full rounded-2xl bg-transparent border border-white/10 p-4 text-white text-[15px] placeholder-slate-400 outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all backdrop-blur-sm" 
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          className="w-full rounded-2xl bg-yellow-400 py-4 mt-4 font-black text-[#0B1426] text-[16px] tracking-wide hover:bg-yellow-300 active:scale-[0.97] transition-all shadow-[0_4px_25px_rgba(250,204,21,0.25)] flex items-center justify-center gap-2"
+        >
+          Access Command Center
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+        </button>
+      </form>
+    </>
+  );
+}
+
+export default function AdminLoginPage() {
   return (
     <div 
       className="relative min-h-screen font-sans flex flex-col selection:bg-yellow-400 selection:text-black overflow-hidden bg-cover bg-center bg-no-repeat"
@@ -45,51 +98,9 @@ export default function AdminLoginPage() {
           <p className="text-white/80 font-bold text-[15px]">Sign in to Command Center.</p>
         </div>
 
-        {isRegistered && (
-          <div className="mb-6 rounded-2xl bg-[#0B1426]/80 backdrop-blur-md p-4 text-[14px] font-bold text-green-400 flex items-center gap-3 border border-green-500/30 shadow-xl">
-            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-            Admin account created! Please log in.
-          </div>
-        )}
-
-        {errorMessage && (
-          <div className="mb-6 rounded-2xl bg-[#0B1426]/80 backdrop-blur-md p-4 text-[14px] font-bold text-red-400 border border-red-500/30 flex items-center gap-3 shadow-xl">
-            <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">⚠️</div>
-            {errorMessage}
-          </div>
-        )}
-
-        <form action={loginAction} className="space-y-4">
-          <input type="hidden" name="portal" value="admin" />
-          
-          <div>
-            <input 
-              type="email" 
-              name="email" 
-              required 
-              placeholder="Admin Email Address" 
-              className="w-full rounded-2xl bg-transparent border border-white/10 p-4 text-white text-[15px] placeholder-slate-400 outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all backdrop-blur-sm" 
-            />
-          </div>
-
-          <div>
-            <input 
-              type="password" 
-              name="password" 
-              required 
-              placeholder="Admin Password" 
-              className="w-full rounded-2xl bg-transparent border border-white/10 p-4 text-white text-[15px] placeholder-slate-400 outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all backdrop-blur-sm" 
-            />
-          </div>
-
-          <button 
-            type="submit" 
-            className="w-full rounded-2xl bg-yellow-400 py-4 mt-4 font-black text-[#0B1426] text-[16px] tracking-wide hover:bg-yellow-300 active:scale-[0.97] transition-all shadow-[0_4px_25px_rgba(250,204,21,0.25)] flex items-center justify-center gap-2"
-          >
-            Access Command Center
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-          </button>
-        </form>
+        <Suspense fallback={<div className="text-white font-bold text-center p-4">Loading Admin Portal...</div>}>
+          <AdminLoginForm />
+        </Suspense>
 
         <div className="mt-8 text-center flex flex-col gap-3 pb-4">
           <Link href="/auth/admin/register" className="text-slate-400 text-sm font-medium hover:text-yellow-400 transition-colors">
