@@ -1,12 +1,11 @@
 'use client'
 
-import './globals.css' // 👈 Crucial: Imports Tailwind CSS
 import { useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client' 
+import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function AuthRefreshProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const router = useRouter()
 
@@ -20,16 +19,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         }
       }
     )
-
     return () => subscription.unsubscribe()
   }, [supabase, router])
 
-  return (
-    // suppressHydrationWarning added here to prevent extension-induced crashes
-    <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning>
-        {children}
-      </body>
-    </html>
-  )
+  return <>{children}</>
 }
