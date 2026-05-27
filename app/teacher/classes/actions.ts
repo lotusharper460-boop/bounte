@@ -7,9 +7,7 @@ import { revalidatePath } from 'next/cache'
 export async function createClass(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: "Unauthorized access. Please log in again." }
-  }
+  if (!user) throw new Error("Unauthorized access.")
 
   const name = formData.get('name') as string
   const subject = formData.get('subject') as string
@@ -18,7 +16,7 @@ export async function createClass(formData: FormData) {
 
   // Strict check to satisfy database Enum
   if (!['1st', '2nd', '3rd'].includes(term)) {
-    return { error: "Invalid term selected." }
+    throw new Error("Invalid term selected.")
   }
 
   const { error } = await supabase
@@ -31,19 +29,15 @@ export async function createClass(formData: FormData) {
       term
     }])
 
-  if (error) {
-    return { error: error.message }
-  }
+  if (error) throw new Error(error.message)
   
-  // Safely refresh cache and signal completion
+  // Safely refresh cache and let the server components re-render cleanly
   revalidatePath('/teacher/classes')
-  return { success: true }
 }
 
-// 2. SEARCH FOR STUDENTS
+// 2. SEARCH FOR STUDENTS (Keep this identical)
 export async function searchStudents(searchTerm: string) {
   const supabase = await createClient()
-  
   const { data, error } = await supabase
     .from('profiles')
     .select('id, full_name, avatar_url, role')
@@ -55,17 +49,14 @@ export async function searchStudents(searchTerm: string) {
   return data || []
 }
 
-// 3. ENROLL A STUDENT
+// 3. ENROLL A STUDENT (Keep this identical)
 export async function enrollStudent(classId: string, studentId: string) {
   const supabase = await createClient()
-  
   const { error } = await supabase
     .from('class_enrollments')
     .insert([{ class_id: classId, student_id: studentId }])
 
-  if (error?.code === '23505') {
-    return { error: "Operative is already assigned to this class." }
-  }
+  if (error?.code === '23505') return { error: "Operative is already assigned to this class." }
   if (error) return { error: error.message }
 
   revalidatePath(`/teacher/classes/${classId}`)
