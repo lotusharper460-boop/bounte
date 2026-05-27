@@ -1,4 +1,5 @@
-export const dynamic = 'force-dynamic'; // 🟢 Forces Vercel to fetch live database results on every load
+// app/teacher/classes/page.tsx
+export const dynamic = 'force-dynamic';
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
@@ -11,11 +12,10 @@ export default async function ClassesHubPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/admin/login')
 
-  // Fetch classes owned by this teacher dynamically
+  // Fetch classes – RLS will automatically filter based on role
   const { data: classes } = await supabase
     .from('classes')
     .select('*')
-    .eq('teacher_id', user.id)
     .order('created_at', { ascending: false })
 
   return (
