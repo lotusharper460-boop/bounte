@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'  // <-- add this
 import Link from 'next/link'
 import { createBrowserClient } from '@supabase/ssr'
-import { ArrowLeft, Megaphone, Send, Radio, History, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { ArrowLeft, Megaphone, Send, Radio, History, CheckCircle2, AlertCircle, Loader2, LogOut } from 'lucide-react'
 
 interface ClassData {
   id: string;
@@ -19,49 +20,64 @@ interface Announcement {
 }
 
 export default function BroadcastCenter() {
+  const router = useRouter()  // <-- for redirect
   const [supabase] = useState(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ))
 
-  // State
   const [classes, setClasses] = useState<ClassData[]>([])
   const [history, setHistory] = useState<Announcement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [authError, setAuthError] = useState(false)
 
   // Form State
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [audience, setAudience] = useState('all') // 'all', 'students', 'class'
+  const [audience, setAudience] = useState('all')
   const [targetClass, setTargetClass] = useState('')
 
   useEffect(() => {
     fetchData()
-  }, [supabase])
+  }, [])
 
   const fetchData = async () => {
     setIsLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    
+    if (!user) {
+      setAuthError(true)
+      setIsLoading(false)
+      return
+    }
 
-    // Fetch classes for the dropdown
-    const { data: classData } = await supabase
-      .from('classes')
-      .select('id, name')
-      .eq('teacher_id', user.id)
+    // Reset auth error
+    setAuthError(false)
 
-    if (classData) setClasses(classData)
+    try {
+      // Fetch classes for the dropdown
+      const { data: classData } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('teacher_id', user.id)
 
-    // Fetch historical announcements
-    const { data: logs } = await supabase
-      .from('announcements')
-      .select('id, title, body, audience, sent_at')
-      .eq('author_id', user.id)
-      .order('sent_at', { ascending: false })
+      if (classData) setClasses(classData)
 
-    if (logs) setHistory(logs)
-    setIsLoading(false)
+      // Fetch historical announcements
+      const { data: logs, error: logError } = await supabase
+        .from('announcements')
+        .select('id, title, body, audience, sent_at')
+        .eq('author_id', user.id)
+        .order('sent_at', { ascending: false })
+
+      if (logError) throw logError
+      if (logs) setHistory(logs)
+    } catch (error: any) {
+      console.error('Fetch error:', error.message)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleBroadcast = async (e: React.FormEvent) => {
@@ -73,7 +89,10 @@ export default function BroadcastCenter() {
     setIsSubmitting(true)
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) {
+      setIsSubmitting(false)
+      return alert("Session expired. Please log in again.")
+    }
 
     try {
       const { error } = await supabase
@@ -97,7 +116,7 @@ export default function BroadcastCenter() {
       setTargetClass('')
       
       // Refresh Logs
-      fetchData()
+      await fetchData()
 
     } catch (error: any) {
       console.error(error)
@@ -112,6 +131,22 @@ export default function BroadcastCenter() {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
     }
     return new Date(dateString).toLocaleDateString('en-US', options)
+  }
+
+  // If user is not authenticated, show a message with a login button
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-[#0B1426] text-white flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle size={48} className="text-yellow-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Session Expired</h2>
+          <p className="text-slate-400 mb-6">You need to log in again to access the Broadcast Center.</p>
+          <Link href="/auth/admin/login" className="bg-yellow-400 text-black font-bold px-6 py-3 rounded-xl">
+            Go to Login
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -186,7 +221,6 @@ export default function BroadcastCenter() {
                 </select>
               </div>
 
-              {/* DYNAMIC CLASS SELECTOR */}
               {audience === 'class' && (
                 <div className="animate-in fade-in slide-in-from-right-4 duration-300">
                   <label className="block text-xs font-bold text-yellow-400 uppercase tracking-wider mb-2">Select Classroom</label>
@@ -227,7 +261,7 @@ export default function BroadcastCenter() {
           ) : history.length === 0 ? (
             <div className="py-12 flex flex-col items-center justify-center text-center bg-white/5 border border-dashed border-white/10 rounded-3xl">
               <AlertCircle size={32} className="text-slate-600 mb-4" />
-              <p className="text-slate-400 text-sm">No historical broadcasts found.</p>
+              <p className="text-slate-400 text-sm">No historical broadcasts found. Send your first broadcast above.</p>
             </div>
           ) : (
             <div className="space-y-4">
