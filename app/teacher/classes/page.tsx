@@ -1,7 +1,9 @@
+export const dynamic = 'force-dynamic'; // 🟢 Forces Vercel to fetch live database results on every load
+
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Users, BookOpen, Calendar } from 'lucide-react'
+import { Plus, BookOpen, Calendar } from 'lucide-react'
 import { createClass } from './actions'
 
 export default async function ClassesHubPage() {
@@ -9,7 +11,7 @@ export default async function ClassesHubPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/admin/login')
 
-  // Fetch classes owned by this teacher
+  // Fetch classes owned by this teacher dynamically
   const { data: classes } = await supabase
     .from('classes')
     .select('*')
@@ -52,7 +54,6 @@ export default async function ClassesHubPage() {
                 
                 <div>
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Term</label>
-                  {/* CRITICAL: Must be a select dropdown to satisfy database ENUM */}
                   <select required name="term" className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-yellow-400 focus:outline-none transition-colors appearance-none">
                     <option value="1st">1st Term</option>
                     <option value="2nd">2nd Term</option>
