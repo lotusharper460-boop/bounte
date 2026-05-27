@@ -7,7 +7,9 @@ import { revalidatePath } from 'next/cache'
 export async function createClass(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("Unauthorized")
+  if (!user) {
+    return { error: "Unauthorized access. Please log in again." }
+  }
 
   const name = formData.get('name') as string
   const subject = formData.get('subject') as string
@@ -16,10 +18,10 @@ export async function createClass(formData: FormData) {
 
   // Strict check to satisfy database Enum
   if (!['1st', '2nd', '3rd'].includes(term)) {
-    throw new Error("Invalid term selected.")
+    return { error: "Invalid term selected." }
   }
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('classes')
     .insert([{
       teacher_id: user.id,
@@ -28,13 +30,14 @@ export async function createClass(formData: FormData) {
       academic_year,
       term
     }])
-    .select()
-    .single()
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    return { error: error.message }
+  }
   
+  // Safely refresh cache and signal completion
   revalidatePath('/teacher/classes')
-  return data
+  return { success: true }
 }
 
 // 2. SEARCH FOR STUDENTS
@@ -48,7 +51,7 @@ export async function searchStudents(searchTerm: string) {
     .ilike('full_name', `%${searchTerm}%`)
     .limit(5)
 
-  if (error) throw new Error(error.message)
+  if (error) return []
   return data || []
 }
 
