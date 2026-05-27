@@ -1,3 +1,4 @@
+// Force Next.js to fetch fresh data every time
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -13,7 +14,7 @@ export default async function StudentAnnouncementsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  // 2. Fetch Enrolled Classes to filter targeted announcements
+  // 2. Fetch enrolled classes (for client‑side audience filtering)
   const { data: enrollments } = await supabase
     .from('class_enrollments')
     .select('class_id')
@@ -21,15 +22,7 @@ export default async function StudentAnnouncementsPage() {
 
   const enrolledClassIds = enrollments?.map(e => e.class_id) || []
 
-  // 3. Build the RLS-Safe Audience Query
-  // Students should see: audience='all', audience='students', or audience='class' (if they are in the target_class)
-  let audienceFilter = 'audience.eq.all,audience.eq.students'
-  if (enrolledClassIds.length > 0) {
-    const classIdString = enrolledClassIds.join(',')
-    audienceFilter += `,and(audience.eq.class,target_class.in.(${classIdString}))`
-  }
-
-  // 4. Fetch the Transmissions
+  // 3. Fetch ALL sent announcements (RLS already limits to those the student can see)
   const { data: announcements, error } = await supabase
     .from('announcements')
     .select(`
@@ -37,21 +30,32 @@ export default async function StudentAnnouncementsPage() {
       title,
       body,
       audience,
+      target_class,
       sent_at,
       profiles!author_id (full_name, role)
     `)
     .eq('status', 'sent')
-    .or(audienceFilter)
     .order('sent_at', { ascending: false })
 
   if (error) {
     console.error("Transmission Intercept Error:", error.message)
   }
 
-  // Formatting Date safely
+  // 4. Filter client‑side to show only relevant announcements
+  const filteredAnnouncements = (announcements || []).filter((msg: any) => {
+    // Show to everyone
+    if (msg.audience === 'all') return true
+    // Show to all students
+    if (msg.audience === 'students') return true
+    // Show if it's for a specific class and the student is in that class
+    if (msg.audience === 'class' && msg.target_class && enrolledClassIds.includes(msg.target_class)) return true
+    // Otherwise hide
+    return false
+  })
+
   const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = { 
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+    const options: Intl.DateTimeFormatOptions = {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
     }
     return new Date(dateString).toLocaleDateString('en-US', options)
   }
@@ -89,8 +93,8 @@ export default async function StudentAnnouncementsPage() {
         </div>
 
         <div className="space-y-6">
-          {announcements && announcements.length > 0 ? (
-            announcements.map((msg: any) => (
+          {filteredAnnouncements.length > 0 ? (
+            filteredAnnouncements.map((msg: any) => (
               <div key={msg.id} className="bg-white/5 border border-white/10 rounded-3xl p-6 sm:p-8 relative overflow-hidden transition-all hover:bg-white/[0.07] hover:border-yellow-400/30">
                 
                 {/* Meta Row */}
@@ -118,6 +122,12 @@ export default async function StudentAnnouncementsPage() {
                   <div className="flex items-center gap-3 mb-4">
                     {msg.audience === 'class' && (
                       <span className="px-2 py-1 bg-blue-500/10 text-blue-400 text-[10px] font-black uppercase tracking-wider rounded border border-blue-500/20">Class Specific</span>
+                    )}
+                    {msg.audience === 'all' && (
+                      <span className="px-2 py-1 bg-purple-500/10 text-purple-400 text-[10px] font-black uppercase tracking-wider rounded border border-purple-500/20">Global</span>
+                    )}
+                    {msg.audience === 'students' && (
+                      <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-wider rounded border border-emerald-500/20">Operative Wide</span>
                     )}
                     <h3 className="text-xl sm:text-2xl font-bold text-white">{msg.title}</h3>
                   </div>
